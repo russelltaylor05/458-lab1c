@@ -1,0 +1,18 @@
+Russell Taylor (rtaylor)
+Matt Crussell (macrusse)
+CPE458-01 Lab1 Winter 2013
+
+Makefile Usage:
+
+To build a Single Precision Executable, use "make single"
+To build a Double Precision Executable, use "make double"
+
+
+Code Usage:
+
+./mm_cuda [MATRIX A INFILE] [MATRIX B INFILE]
+Outputs matrix into file "result.out"
+
+
+
+

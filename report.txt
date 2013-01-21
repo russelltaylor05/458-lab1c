@@ -1,0 +1,24 @@
+Matt Crussell(macrusse)
+Russell Taylor(rtaylor)
+CPE 458 Lab 1b Winter 2013
+
+Done using CS Lab Machine
+
+Time on 1408^2 Matrix Multiplication: 
+
+Single Precision:
+	    Test 1	 Test 2		Test 3
+real	0m3.115  0m2.540  0m2.660
+
+Double Precision:
+	    Test 1	 Test 2	  Test 3
+real	0m3.151  0m2.098  0m2.099 
+
+
+Question:
+Quadro 5000 has 32 Cuda Cores for each of the 11 Streaming MultiProcessors = 352 Cores
+Each Core can handle a Warp which contains 32 Threads
+Therefore: 32 threads * 352 Cores = 11,264
+
+
+

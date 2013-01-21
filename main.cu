@@ -185,15 +185,18 @@ __global__ void MMKernel(TYPEUSE *A_d, TYPEUSE *B_d, TYPEUSE * C_d, int depth, i
 {
   TYPEUSE Cvalue = 0.0;
 
-  //int resultLength = Awidth * Bwidth;
   int resultWidth = Bwidth;
   int resultCol = blockIdx.x * blockDim.x + threadIdx.x;
   int resultRow = blockIdx.y * blockDim.y + threadIdx.y;  
   int resultIndex = resultRow * resultWidth + resultCol;
 
-  if(resultRow > Awidth || resultCol > Bwidth)
+  if(resultRow >= Awidth || resultCol >= Bwidth)
     return;
     
+  //if(resultIndex == 3) 
+  //printf("threadID: %d,%d\n", threadIdx.x, threadIdx.y);
+  //printf("resultInx: %d\n", resultIndex);
+  
   for(int k = 0; k < depth; k++) {
     TYPEUSE Aelement = A_d[resultRow * Awidth + k];
     TYPEUSE Belement = B_d[Bwidth * k + resultCol];
@@ -253,6 +256,8 @@ int main (int argc, const char * argv[])
   
   blockRow = (Arow+31) / 32;
   blockCol = (Bcol+31) / 32;
+  
+  printf("blockRow: %d\t blockCol: %d\n",blockRow,blockCol);
     
   /*Kernel Call*/
   dim3 dimGrid(blockCol,blockRow);
@@ -261,9 +266,9 @@ int main (int argc, const char * argv[])
 
   cudaMemcpy(Cmatrix,C_d,size, cudaMemcpyDeviceToHost);
 
-  output_matrix(Cfile, Cmatrix, Arow, Bcol);
+  //output_matrix(Cfile, Cmatrix, Arow, Bcol);
   
-  //print_matrix(Cmatrix, Arow, Bcol);
+  print_matrix(Cmatrix, Arow, Bcol);
   
   /* Free Stuff */
   cudaFree(A_d);

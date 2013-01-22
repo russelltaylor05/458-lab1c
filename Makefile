@@ -27,6 +27,10 @@ test1: $(TARGET)
 test2: $(TARGET)
 	$(TARGET) input/B.in input/B.in
 
+test3: $(TARGET)
+	$(TARGET) input/C.in input/C.in
+
+
 
 clean: 
 	rm -f *.o mm_cuda

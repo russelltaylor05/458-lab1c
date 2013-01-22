@@ -232,7 +232,6 @@ __global__ void MMKernel(TYPEUSE *A_d, TYPEUSE *B_d, TYPEUSE * C_d, int depth, i
 
     /* Wait for all threads to finish */
     __syncthreads();
-
   }
     
   C_d[resultIndex] = Cvalue;
@@ -299,9 +298,9 @@ int main (int argc, const char * argv[])
 
   cudaMemcpy(Cmatrix,C_d,size, cudaMemcpyDeviceToHost);
 
-  output_matrix(Cfile, Cmatrix, Arow, Bcol);
+  //output_matrix(Cfile, Cmatrix, Arow, Bcol);
   
-  //print_matrix(Cmatrix, Arow, Bcol);
+  print_matrix(Cmatrix, Arow, Bcol);
   
   /* Free Stuff */
   cudaFree(A_d);

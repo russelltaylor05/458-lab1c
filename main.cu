@@ -15,6 +15,8 @@
 #include <ctype.h>
 #include <stdint.h>
 
+#define TILE_SIZE 32
+
 /*Compile-Time Declaration on double or float usage*/
 #ifdef DOUBLE
 #define TYPEUSE double
@@ -181,27 +183,47 @@ TYPEUSE * read_matrix(int * rowCnt, int * colCnt, char * mapped)
 
 }
 
-__global__ void MMKernel(TYPEUSE *A_d, TYPEUSE *B_d, TYPEUSE * C_d, int depth, int Awidth, int Bwidth)
+__device__ void buildMiniMatrix(TYPEUSE * M_d, TYPEUSE M_s[TILE_SIZE][TILE_SIZE], int row, int col)
+{
+  if(threadIdx.y < TILE_SIZE && threadIdx.x < TILE_SIZE)
+    M_s[threadIdx.y][threadIdx.x] = M_d[row + col];
+}
+
+__global__ void MMKernel(TYPEUSE *A_d, TYPEUSE *B_d, TYPEUSE * C_d, int depth, int Arow, int Bcol)
 {
   TYPEUSE Cvalue = 0.0;
-
-  int resultWidth = Bwidth;
+  __shared__ TYPEUSE A_s[TILE_SIZE][TILE_SIZE], B_s[TILE_SIZE][TILE_SIZE]; 
+  int resultWidth = Bcol;
   int resultCol = blockIdx.x * blockDim.x + threadIdx.x;
   int resultRow = blockIdx.y * blockDim.y + threadIdx.y;  
   int resultIndex = resultRow * resultWidth + resultCol;
 
-  if(resultRow >= Awidth || resultCol >= Bwidth)
+  if(resultRow >= Arow || resultCol >= Bcol)
     return;
+  
+  for(int i = 0; i < (depth+TILE_SIZE-1)/TILE_SIZE; i++)
+  {
+    if(threadIdx.x + i* TILE_SIZE < depth)
+      buildMiniMatrix(A_d, A_s, resultRow*Arow, threadIdx.x+i*TILE_SIZE);
+    if(threadIdx.y + i* TILE_SIZE < depth)
+      buildMiniMatrix(B_d, B_s, (threadIdx.y + i*TILE_SIZE)*Bcol, resultCol);
     
+    __syncthreads();
+
+    for(int k = 0; k < TILE_SIZE; k++)
+    {
+      if(k + i*TILE_SIZE < depth)
+      {
+        TYPEUSE Aelem = A_s[threadIdx.y][k];
+        TYPEUSE Belem = B_s[k][threadIdx.x];
+        Cvalue += Aelem * Belem;
+      }
+    }
+  }
   //if(resultIndex == 3) 
   //printf("threadID: %d,%d\n", threadIdx.x, threadIdx.y);
   //printf("resultInx: %d\n", resultIndex);
   
-  for(int k = 0; k < depth; k++) {
-    TYPEUSE Aelement = A_d[resultRow * Awidth + k];
-    TYPEUSE Belement = B_d[Bwidth * k + resultCol];
-    Cvalue += Aelement * Belement;
-  }
   C_d[resultIndex] = Cvalue;
 }
 
@@ -257,7 +279,7 @@ int main (int argc, const char * argv[])
   blockRow = (Arow+31) / 32;
   blockCol = (Bcol+31) / 32;
   
-  printf("blockRow: %d\t blockCol: %d\n",blockRow,blockCol);
+  //printf("blockRow: %d\t blockCol: %d\n",blockRow,blockCol);
     
   /*Kernel Call*/
   dim3 dimGrid(blockCol,blockRow);
@@ -266,9 +288,9 @@ int main (int argc, const char * argv[])
 
   cudaMemcpy(Cmatrix,C_d,size, cudaMemcpyDeviceToHost);
 
-  //output_matrix(Cfile, Cmatrix, Arow, Bcol);
+  output_matrix(Cfile, Cmatrix, Arow, Bcol);
   
-  print_matrix(Cmatrix, Arow, Bcol);
+  //print_matrix(Cmatrix, Arow, Bcol);
   
   /* Free Stuff */
   cudaFree(A_d);

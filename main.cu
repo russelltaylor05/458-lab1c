@@ -183,47 +183,58 @@ TYPEUSE * read_matrix(int * rowCnt, int * colCnt, char * mapped)
 
 }
 
-__device__ void buildMiniMatrix(TYPEUSE * M_d, TYPEUSE M_s[TILE_SIZE][TILE_SIZE], int row, int col)
+__device__ void copyMiniMatrix(TYPEUSE * M_device, TYPEUSE M_shared[TILE_SIZE][TILE_SIZE], int row, int col)
 {
-  if(threadIdx.y < TILE_SIZE && threadIdx.x < TILE_SIZE)
-    M_s[threadIdx.y][threadIdx.x] = M_d[row + col];
+  if(threadIdx.y < TILE_SIZE && threadIdx.x < TILE_SIZE) {
+    M_shared[threadIdx.y][threadIdx.x] = M_device[row + col];  
+  }
+
 }
 
 __global__ void MMKernel(TYPEUSE *A_d, TYPEUSE *B_d, TYPEUSE * C_d, int depth, int Arow, int Bcol)
 {
   TYPEUSE Cvalue = 0.0;
-  __shared__ TYPEUSE A_s[TILE_SIZE][TILE_SIZE], B_s[TILE_SIZE][TILE_SIZE]; 
+  __shared__ TYPEUSE A_shared[TILE_SIZE][TILE_SIZE], B_shared[TILE_SIZE][TILE_SIZE]; 
   int resultWidth = Bcol;
   int resultCol = blockIdx.x * blockDim.x + threadIdx.x;
   int resultRow = blockIdx.y * blockDim.y + threadIdx.y;  
   int resultIndex = resultRow * resultWidth + resultCol;
 
-  if(resultRow >= Arow || resultCol >= Bcol)
+  /* Boundary check */
+  if(resultRow >= Arow || resultCol >= Bcol) {
     return;
+  }
   
   for(int i = 0; i < (depth+TILE_SIZE-1)/TILE_SIZE; i++)
   {
-    if(threadIdx.x + i* TILE_SIZE < depth)
-      buildMiniMatrix(A_d, A_s, resultRow*Arow, threadIdx.x+i*TILE_SIZE);
-    if(threadIdx.y + i* TILE_SIZE < depth)
-      buildMiniMatrix(B_d, B_s, (threadIdx.y + i*TILE_SIZE)*Bcol, resultCol);
+  
+    /* Copy global matricies into shared memory */
+    if(threadIdx.x + i* TILE_SIZE < depth){
+      copyMiniMatrix(A_d, A_shared, resultRow*Arow, threadIdx.x + (i * TILE_SIZE));
+    }
+    if(threadIdx.y + i* TILE_SIZE < depth) {
+      copyMiniMatrix(B_d, B_shared, (threadIdx.y + (i * TILE_SIZE))*Bcol, resultCol);
+    }
     
+    /* Wait for all threads to complete copy to shared memory */
     __syncthreads();
+
 
     for(int k = 0; k < TILE_SIZE; k++)
     {
-      if(k + i*TILE_SIZE < depth)
+      if(k + (i * TILE_SIZE) < depth) /* Boundary check */
       {
-        TYPEUSE Aelem = A_s[threadIdx.y][k];
-        TYPEUSE Belem = B_s[k][threadIdx.x];
+        TYPEUSE Aelem = A_shared[threadIdx.y][k];
+        TYPEUSE Belem = B_shared[k][threadIdx.x];
         Cvalue += Aelem * Belem;
       }
     }
+
+    /* Wait for all threads to finish */
+    __syncthreads();
+
   }
-  //if(resultIndex == 3) 
-  //printf("threadID: %d,%d\n", threadIdx.x, threadIdx.y);
-  //printf("resultInx: %d\n", resultIndex);
-  
+    
   C_d[resultIndex] = Cvalue;
 }
 

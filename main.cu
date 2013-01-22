@@ -219,6 +219,7 @@ __global__ void MMKernel(TYPEUSE *A_d, TYPEUSE *B_d, TYPEUSE * C_d, int depth, i
         Cvalue += Aelem * Belem;
       }
     }
+    __syncthreads();
   }
   //if(resultIndex == 3) 
   //printf("threadID: %d,%d\n", threadIdx.x, threadIdx.y);

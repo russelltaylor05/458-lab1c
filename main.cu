@@ -29,7 +29,7 @@
 /* 
  * Handles CUDA errors, taking from provided sample code on clupo site
  */
-/*
+
 static void HandleError( cudaError_t err, const char * file, int line)
 {
   if(err !=cudaSuccess){
@@ -38,7 +38,7 @@ static void HandleError( cudaError_t err, const char * file, int line)
   }
 }
 #define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
-*/
+
 
 
 /*Reads Input File and Returns Buffer of Contents*/
@@ -183,7 +183,7 @@ TYPEUSE * read_matrix(int * rowCnt, int * colCnt, char * mapped)
 
 }
 
-__device__ void copyMiniMatrix(TYPEUSE * M_device, TYPEUSE M_shared[TILE_SIZE][TILE_SIZE], int row, int col)
+__device__ void copyMiniMatrix(TYPEUSE * M_device, TYPEUSE M_shared[TILE_SIZE][TILE_SIZE], uint64_t row, uint64_t col)
 {
   if(threadIdx.y < TILE_SIZE && threadIdx.x < TILE_SIZE) {
     M_shared[threadIdx.y][threadIdx.x] = M_device[row + col];  
@@ -191,7 +191,7 @@ __device__ void copyMiniMatrix(TYPEUSE * M_device, TYPEUSE M_shared[TILE_SIZE][T
 
 }
 
-__global__ void MMKernel(TYPEUSE *A_d, TYPEUSE *B_d, TYPEUSE * C_d, int depth, int Arow, int Bcol)
+__global__ void MMKernel(TYPEUSE *A_d, TYPEUSE *B_d, TYPEUSE * C_d, uint64_t depth, uint64_t Arow, uint64_t Bcol)
 {
   TYPEUSE Cvalue = 0.0;
   __shared__ TYPEUSE A_shared[TILE_SIZE][TILE_SIZE], B_shared[TILE_SIZE][TILE_SIZE]; 
@@ -276,15 +276,15 @@ int main (int argc, const char * argv[])
   
   /* Malloc and Copy space on GPU */
   size = Arow * Acol * sizeof(TYPEUSE);
-  cudaMalloc(&A_d, size);
-  cudaMemcpy(A_d, Amatrix, size, cudaMemcpyHostToDevice);
+  HANDLE_ERROR(cudaMalloc(&A_d, size));
+  HANDLE_ERROR(cudaMemcpy(A_d, Amatrix, size, cudaMemcpyHostToDevice));
   
   size = Brow * Bcol * sizeof(TYPEUSE);
-  cudaMalloc(&B_d, size);
-  cudaMemcpy(B_d, Bmatrix, size, cudaMemcpyHostToDevice);
+  HANDLE_ERROR(cudaMalloc(&B_d, size));
+  HANDLE_ERROR(cudaMemcpy(B_d, Bmatrix, size, cudaMemcpyHostToDevice));
 
   size = Arow * Bcol * sizeof(TYPEUSE);
-  cudaMalloc(&C_d, size);
+  HANDLE_ERROR(cudaMalloc(&C_d, size));
   
   blockRow = (Arow+31) / 32;
   blockCol = (Bcol+31) / 32;
@@ -296,7 +296,7 @@ int main (int argc, const char * argv[])
   dim3 dimBlock(32,32);
   MMKernel<<<dimGrid,dimBlock>>>(A_d, B_d, C_d, Brow, Arow, Bcol);
 
-  cudaMemcpy(Cmatrix,C_d,size, cudaMemcpyDeviceToHost);
+  HANDLE_ERROR(cudaMemcpy(Cmatrix,C_d,size, cudaMemcpyDeviceToHost));
 
   //output_matrix(Cfile, Cmatrix, Arow, Bcol);
   

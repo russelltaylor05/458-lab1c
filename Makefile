@@ -25,12 +25,15 @@ test1: $(TARGET)
 	@echo ""
 
 test2: $(TARGET)
-	$(TARGET) input/B.in input/B.in
+	$(TARGET) input/1408.in input/1408.in > result2.out
+	./lupo_cuda input/1408.in input/1408.in
+	diff result.out result2.out
+	rm result.out result2.out
 
 test3: $(TARGET)
-	$(TARGET) input/C.in input/C.in
-
-
+	$(TARGET) input/555x666.in input/666x777.in > result2.out
+	./lupo_cuda input/555x666.in input/666x777.in
+	
 
 clean: 
 	rm -f *.o mm_cuda

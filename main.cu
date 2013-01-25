@@ -17,19 +17,16 @@
 
 #define TILE_SIZE 32
 
-/*Compile-Time Declaration on double or float usage*/
+/* Compile-Time Declaration on double or float usage */
 #ifdef DOUBLE
 #define TYPEUSE double
-
 #else
 #define TYPEUSE float
-
 #endif
 
 /* 
  * Handles CUDA errors, taking from provided sample code on clupo site
  */
-
 static void HandleError( cudaError_t err, const char * file, int line)
 {
   if(err !=cudaSuccess){
@@ -40,8 +37,9 @@ static void HandleError( cudaError_t err, const char * file, int line)
 #define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
 
 
-
-/*Reads Input File and Returns Buffer of Contents*/
+/*
+ * Reads Input File and Returns Buffer of Contents
+ */
 char* read_file(const char * file_name) 
 {
   size_t size;
@@ -64,7 +62,9 @@ char* read_file(const char * file_name)
   return buffer;
 }
 
-/*Calculate the Resultant Matrix from Multiplication*/
+/* 
+ * Calculate the Resultant Matrix from Multiplication
+ */
 void calc_matrix(TYPEUSE *A, TYPEUSE *B, TYPEUSE *C, int Arow, int Acol, int Brow, int Bcol)
 {
   uint64_t i, j, k;
@@ -86,7 +86,9 @@ void calc_matrix(TYPEUSE *A, TYPEUSE *B, TYPEUSE *C, int Arow, int Acol, int Bro
   }
 }
 
-/* Print matrix values to a file outputfile */
+/* 
+ * Print matrix values to a file outputfile 
+ */
 void output_matrix(const char * outputfile, TYPEUSE *matrix, int row, int col) 
 {
   int i, j;
@@ -105,6 +107,7 @@ void output_matrix(const char * outputfile, TYPEUSE *matrix, int row, int col)
       fprintf(ofp, "\n");
     }
   }
+  fprintf(ofp, "\n");
   fclose(ofp);
 }
 
@@ -128,7 +131,9 @@ void print_matrix(TYPEUSE *matrix, int row, int col)
 
 }
 
-/*Created a Matrix based on Buffered Input Information*/
+/*
+ * Created a Matrix based on Buffered Input Information
+ */
 TYPEUSE * read_matrix(uint64_t * rowCnt, uint64_t * colCnt, char * mapped)
 {
   TYPEUSE value;  
@@ -183,15 +188,20 @@ TYPEUSE * read_matrix(uint64_t * rowCnt, uint64_t * colCnt, char * mapped)
 
 }
 
+/*
+ * Simply copies device matrix to shared memory 
+ */
 __device__ void copyMiniMatrix(TYPEUSE * M_device, TYPEUSE M_shared[TILE_SIZE][TILE_SIZE], uint64_t devOffset)
 {
   if(threadIdx.y < TILE_SIZE && threadIdx.x < TILE_SIZE) {
     M_shared[threadIdx.y][threadIdx.x] = M_device[devOffset];  
-    //printf("(%d, %d) = %llu\n", threadIdx.x, threadIdx.y, M_shared[threadIdx.y][threadIdx.x]); 
   }
-
 }
 
+
+/*
+ * Kernel called from main.
+ */
 __global__ void MMKernel(TYPEUSE *A_d, TYPEUSE *B_d, TYPEUSE * C_d, uint64_t depth, uint64_t Arow, uint64_t Bcol)
 {
   TYPEUSE Cvalue = 0.0;
@@ -200,21 +210,19 @@ __global__ void MMKernel(TYPEUSE *A_d, TYPEUSE *B_d, TYPEUSE * C_d, uint64_t dep
   int resultCol = blockIdx.x * blockDim.x + threadIdx.x;
   int resultRow = blockIdx.y * blockDim.y + threadIdx.y;  
   int resultIndex = resultRow * resultWidth + resultCol;
+  uint64_t threadReadId;
 
-  /* Boundary check */
-  //if(resultRow >= Arow || resultCol >= Bcol) {
-  //  return;
-  //}
   int validCalcThread = resultRow < Arow && resultCol < Bcol;
 
-  for(int i = 0; i < (depth+TILE_SIZE-1)/TILE_SIZE; i++)
-  {
-    /* Copy global matricies into shared memory */
-    uint64_t threadReadId = threadIdx.x + i * TILE_SIZE;
-    
+  for(int i = 0; i < (depth+TILE_SIZE-1)/TILE_SIZE; i++) {
+
+    /* Copy device matrix A into shared memory */
+    threadReadId = threadIdx.x + i * TILE_SIZE;
     if(threadReadId < depth){
       copyMiniMatrix(A_d, A_shared, resultRow*depth + threadReadId);
     }
+
+    /* Copy device matrix B into shared memory */    
     threadReadId = threadIdx.y + i * TILE_SIZE;
     if(threadReadId < depth) {
       copyMiniMatrix(B_d, B_shared, threadReadId * Bcol + resultCol);
@@ -223,25 +231,28 @@ __global__ void MMKernel(TYPEUSE *A_d, TYPEUSE *B_d, TYPEUSE * C_d, uint64_t dep
     /* Wait for all threads to complete copy to shared memory */
     __syncthreads();
     
+    
     /* Boundary Check*/
     int remaining = depth - (i * TILE_SIZE);
     int maxIter = (remaining <= TILE_SIZE) * (remaining) + 
                   (remaining > TILE_SIZE) * (TILE_SIZE);
 
-    if(validCalcThread)
-    {
-      for(int k = 0; k < maxIter; k++)
-      {
+    if(validCalcThread) {
+      for(int k = 0; k < maxIter; k++) {
         TYPEUSE Aelem = A_shared[threadIdx.y][k];
         TYPEUSE Belem = B_shared[k][threadIdx.x];
         Cvalue += Aelem * Belem;
       }
     }
+
     /* Wait for all threads to finish */
     __syncthreads();
   }
-  if(validCalcThread)
+
+  if(validCalcThread) {
     C_d[resultIndex] = Cvalue;
+  }
+  
 }
 
 int main (int argc, const char * argv[])
@@ -273,7 +284,6 @@ int main (int argc, const char * argv[])
   Bmatrix = read_matrix(&Brow, &Bcol, Bmapped);
   
   if(Acol != Brow) {
-
     fprintf(stderr, "Matrices are not a compatible size to be multiplied, %dx%d and %dx%d\n", Arow, Acol, Brow, Bcol);
     exit(EXIT_FAILURE);
   }
@@ -293,23 +303,20 @@ int main (int argc, const char * argv[])
   
   size = Arow * Bcol * sizeof(TYPEUSE);
   HANDLE_ERROR(cudaMalloc(&C_d, size));
-  
+        
+  /* Kernel Setup */  
   blockRow = (Arow+31) / 32;
   blockCol = (Bcol+31) / 32;
-  
-  //printf("blockRow: %d\t blockCol: %d\n",blockRow,blockCol);
-    
-  /*Kernel Call*/
   dim3 dimGrid(blockCol,blockRow);
   dim3 dimBlock(32,32);
-  //printf("\nblockcol: %d, blockrow: %d\n", blockCol, blockRow);
-  
+
+  /* Kernel Call */  
   MMKernel<<<dimGrid,dimBlock>>>(A_d, B_d, C_d, Brow, Arow, Bcol);
   HANDLE_ERROR(cudaMemcpy(Cmatrix,C_d,size, cudaMemcpyDeviceToHost));
 
-  //output_matrix(Cfile, Cmatrix, Arow, Bcol);
+  output_matrix(Cfile, Cmatrix, Arow, Bcol);
   
-  print_matrix(Cmatrix, Arow, Bcol);
+  //print_matrix(Cmatrix, Arow, Bcol);
   
   /* Free Stuff */
   cudaFree(A_d);

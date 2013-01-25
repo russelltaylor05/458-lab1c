@@ -23,15 +23,16 @@ test1: $(TARGET)
 	$(TARGET) input/A.in input/B.in
 
 test2: $(TARGET)
-	$(TARGET) input/1408.in input/1408.in > result2.out
+	$(TARGET) input/1408.in input/1408.in
 	./lupo_cuda input/1408.in input/1408.in
 	diff result.out result2.out
 	rm result.out result2.out
 
 test3: $(TARGET)
-	$(TARGET) input/555x666.in input/666x777.in > result2.out
+	$(TARGET) input/555x666.in input/666x777.in
 	./lupo_cuda input/555x666.in input/666x777.in
-	
+	diff result.out result2.out
+	rm result.out result2.out	
 
 clean: 
 	rm -f *.o mm_cuda

@@ -19,10 +19,8 @@ single: $(SRCFILES)
 	nvcc $(NVFLAGS) -DSINGLE -o mm_cuda main.cu
 
 
-
 test1: $(TARGET)
-	$(TARGET) input/A.in input/A.in
-	@echo ""
+	$(TARGET) input/A.in input/B.in
 
 test2: $(TARGET)
 	$(TARGET) input/1408.in input/1408.in > result2.out
